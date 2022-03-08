@@ -1,5 +1,19 @@
 # esp8266_milight_hub [![Build Status](https://travis-ci.org/sidoh/esp8266_milight_hub.svg?branch=master)](https://travis-ci.org/sidoh/esp8266_milight_hub) [![License][shield-license]][info-license]
 
+
+## Changes in this fork
+
+This fork extends the original projekt. 
+It's desigend to be used with a special built hardware, that contains 2 buttons and 8 leds, a Lolin Node MCU V3, an MCP23017 portexpander and the 2.4GHz module NRF24L01+PA. 
+The target is to create a stand alone controller, that can control 8 groups and can store 6 scenes (limited by EEPROM), that will be automatically switched per time, pulled from an NTP server.
+I also created a desktop program and an excel sheet/macro to take control from a pc and to program the scenes. 
+The lib folder "MaxSeins" contains only code, that i wrote. 
+All changes in the original code are written between ifdef statements.
+
+Transitions and MQTT support is removed because not used.
+
+## ORIGINAL
+
 This is a replacement for a Milight/LimitlessLED remote/gateway hosted on an ESP8266. Leverages [Henryk Plötz's awesome reverse-engineering work](https://hackaday.io/project/5888-reverse-engineering-the-milight-on-air-protocol).
 
 [Milight bulbs](https://www.amazon.com/Mi-light-Dimmable-RGBWW-Spotlight-Smart/dp/B01LPRQ4BK/r) are cheap smart bulbs that are controllable with an undocumented 2.4 GHz protocol. In order to control them, you either need a [remote](https://www.amazon.com/Mi-light-Dimmable-RGBWW-Spotlight-Smart/dp/B01LCSALV6/r?th=1) ($13), which allows you to control them directly, or a [WiFi gateway](http://futlight.com/productlist.aspx?typeid=125) ($30), which allows you to control them with a mobile app or a [UDP protocol](https://github.com/Fantasmos/LimitlessLED-DevAPI).
@@ -133,89 +147,7 @@ The REST API is specified using the [OpenAPI v3](https://swagger.io/docs/specifi
 
 [Docs for other branches can be found here](https://sidoh.github.io/esp8266_milight_hub)
 
-## MQTT
 
-To configure your ESP to integrate with MQTT, fill out the following settings:
-
-1. `mqtt_server`- IP or hostname should work. Specify a port with standard syntax (e.g., "mymqttbroker.com:1884").
-1. `mqtt_topic_pattern` - you can control arbitrary configurations of device ID, device type, and group ID with this. A good default choice is something like `milight/:device_id/:device_type/:group_id`. More detail is provided below.
-1. (optionally) `mqtt_username`
-1. (optionally) `mqtt_password`
-
-#### More detail on `mqtt_topic_pattern`
-
-`mqtt_topic_pattern` leverages single-level wildcards (documented [here](https://mosquitto.org/man/mqtt-7.html)). For example, specifying `milight/:device_id/:device_type/:group_id` will cause the ESP to subscribe to the topic `milight/+/+/+`. It will then interpret the second, third, and fourth tokens in topics it receives messages on as `:device_id`, `:device_type`, and `:group_id`, respectively.  The following tokens are available:
-
-1. `:device_id` - Device ID. Can be hexadecimal (e.g. `0x1234`) or decimal (e.g. `4660`).
-1. `:device_type` - Remote type.  `rgbw`, `fut089`, etc.
-1. `:group_id` - Group.  0-4 for most remotes.  The "All" group is group 0.
-1. `:device_alias` - Alias for the given device.  Note that if an alias is not configured, a default token `__unnamed_group` will be substituted instead.
-
-Messages should be JSON objects using exactly the same schema that the [REST gateway](https://sidoh.github.io/esp8266_milight_hub/branches/latest/#tag/Device-Control/paths/~1gateways~1{device-id}~1{remote-type}~1{group-id}/put) uses for the `/gateways/:device_id/:device_type/:group_id` endpoint.
-
-#### Example:
-
-If `mqtt_topic_pattern` is set to `milight/:device_id/:device_type/:group_id`, you could send the following message to it (the below example uses a ruby MQTT client):
-
-```ruby
-irb(main):001:0> require 'mqtt'
-irb(main):002:0> client = MQTT::Client.new('10.133.8.11',1883)
-irb(main):003:0> client.connect
-irb(main):004:0> client.publish('milight/0x118D/rgb_cct/1', '{"status":"ON","color":{"r":255,"g":200,"b":255},"brightness":100}')
-```
-
-This will instruct the ESP to send messages to RGB+CCT bulbs with device ID `0x118D` in group 1 to turn on, set color to RGB(255,200,255), and brightness to 100.
-
-#### Updates
-
-ESPMH is capable of providing two types of updates:
-
-1. Delta: as packets are received, they are translated into the corresponding command (e.g., "set brightness to 50").  The translated command is sent as an update.
-2. State: When an update is received, the corresponding command is applied to known group state, and the whole state for the group is transmitted.
-
-##### Delta updates
-
-To publish data from intercepted packets to an MQTT topic, configure MQTT server settings, and set the `mqtt_update_topic_pattern` to something of your choice. As with `mqtt_topic_pattern`, the tokens `:device_id`, `:device_type`, and `:group_id` will be substituted with the values from the relevant packet.  `:device_id` will always be substituted with the hexadecimal value of the ID.  You can also use `:hex_device_id`, or `:dec_device_id` if you prefer decimal.
-
-The published message is a JSON blob containing the state that was changed.
-
-As an example, if `mqtt_update_topic_pattern` is set to `milight/updates/:hex_device_id/:device_type/:group_id`, and the group 1 on button of a Milight remote is pressed, the following update will be dispatched:
-
-```ruby
-irb(main):005:0> client.subscribe('milight/updates/+/+/+')
-=> 27
-irb(main):006:0> puts client.get.inspect
-["lights/updates/0x1C8E/rgb_cct/1", "{\"status\":\"on\"}"]
-```
-
-##### Full state updates
-
-For this mode, `mqtt_state_topic_pattern` should be set to something like `milight/states/:hex_device_id/:device_type/:group_id`.  As an example:
-
-```ruby
-irb(main):005:0> client.subscribe('milight/states/+/+/+')
-=> 27
-irb(main):006:0> puts client.get.inspect
-["lights/states/0x1C8E/rgb_cct/1", "{\"state\":\"ON\",\"brightness\":255,\"color_temp\":370,\"bulb_mode\":\"white\"}"]
-irb(main):007:0> puts client.get.inspect
-["lights/states/0x1C8E/rgb_cct/1", "{\"state\":\"ON\",\"brightness\":100,\"color_temp\":370,\"bulb_mode\":\"white\"}"]
-```
-
-**Make sure that `mqtt_topic_pattern`, `mqtt_state_topic_pattern`, and `matt_update_topic_pattern` are all different!**  If they are they same you can put your ESP in a loop where its own updates trigger an infinite command loop.
-
-##### Customize fields
-
-You can select which fields should be included in state updates by configuring the `group_state_fields` parameter.  Available fields should be mostly self explanatory, but are all documented in the REST API spec under `GroupStateField`.
-
-#### Client Status
-
-To receive updates when the MQTT client connects or disconnects from the broker, confugre the `mqtt_client_status_topic` parameter.  A message of the following form will be published:
-
-```json
-{"status":"disconnected_unclean","firmware":"milight-hub","version":"1.9.0-rc3","ip_address":"192.168.1.111","reset_reason":"External System"}
-```
-
-If you wish to have the simple messages `connected` and `disconnected` instead of the above environmental data, configure `simple_mqtt_client_status` to `true` (or set Client Status Message Mode to "Simple" in the Web UI).
 
 ## UDP Gateways
 
@@ -223,40 +155,11 @@ You can add an arbitrary number of UDP gateways through the REST API or through 
 
 You can select between versions 5 and 6 of the UDP protocol (documented [here](https://github.com/BKrajancic/LimitlessLED-DevAPI/)). Version 6 has support for the newer RGB+CCT bulbs and also includes response packets, which can theoretically improve reliability. Version 5 has much smaller packets and is probably lower latency.
 
-## Transitions
-
-Transitions between two given states are supported.  Depending on how transition commands are being issued, the duration and smoothness of the transition are both configurable.  There are a few ways to use transitions:
 
 #### RESTful `/transitions` routes
 
 These routes are fully documented in the [REST API documentation](https://sidoh.github.io/esp8266_milight_hub/branches/latest/#tag/Transitions).
 
-#### `transition` field when issuing commands
-
-When you issue a command to a bulb either via REST or MQTT, you can include a `transition` field.  The value of this field specifies the duration of the transition, in seconds (non-integer values are supported).
-
-For example, the command:
-
-```json
-{"brightness":255,"transition":60}
-```
-
-will transition from whatever the current brightness is to `brightness=255` over 60 seconds.
-
-#### Notes on transitions
-
-* espMH's transitions should work seamlessly with [HomeAssistant's transition functionality](https://www.home-assistant.io/components/light/).
-* You can issue commands specifying transitions between many fields at once.  For example:
-  ```json
-  {"brightness":255,"kelvin":0,"transition":10.5}
-  ```
-  will transition from current values for brightness and kelvin to the specified values -- 255 and 0 respectively -- over 10.5 seconds.
-* Color transitions are supported.  Under the hood, this is treated as a transition between current values for r, g, and b to the r, g, b values for the specified color.  Because milight uses hue-sat colors, this might not behave exactly as you'd expect for all colors.
-* You can transition to a given `status` or `state`.  For example,
-  ```json
-  {"status":"ON","transition":10}
-  ```
-  will turn the bulb on, immediately set the brightness to 0, and then transition to brightness=255 over 10 seconds.  If you specify a brightness value, the transition will stop there instead of 255.
 
 ## LED Status
 
