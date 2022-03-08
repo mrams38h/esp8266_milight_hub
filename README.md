@@ -1,6 +1,8 @@
 # esp8266_milight_hub [![Build Status](https://travis-ci.org/sidoh/esp8266_milight_hub.svg?branch=master)](https://travis-ci.org/sidoh/esp8266_milight_hub) [![License][shield-license]][info-license]
 
 
+### IN PROGRESS - DON'T USE YET
+
 ## Changes in this fork
 
 This fork extends the original projekt. 
