@@ -8,11 +8,14 @@
 This fork extends the original projekt. 
 It's desigend to be used with a special built hardware, that contains 2 buttons and 8 leds, a Lolin Node MCU V3, an MCP23017 portexpander and the 2.4GHz module NRF24L01+PA. 
 The target is to create a stand alone controller, that can control 8 groups and can store 6 scenes (limited by EEPROM), that will be automatically switched per time, pulled from an NTP server.
-I also created a desktop program and an excel sheet/macro to take control from a pc and to program the scenes. 
+I also created a desktop program and an excel sheet&macro to take control from a pc and to program the scenes. 
 The lib folder "MaxSeins" contains only code, that i wrote. 
 All changes in the original code are written between ifdef statements.
 
-Transitions and MQTT support is removed because not used.
+Transitions and MQTT support are removed because not used.
+Also only FUT89 is used (meaningless what you select in webinterface) because there was a bug, that UDP commands could only trigger FUT92 messages. 
+It's also now possible to deactivate the Webinterface with a button in my PC program because of safty resons. 
+This state is stored permanently in EEPROM an can only be changed with te PC program. 
 
 ## ORIGINAL
 
